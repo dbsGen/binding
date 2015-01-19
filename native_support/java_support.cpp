@@ -537,7 +537,6 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
         }else {
             Ref<NativeObject> res_obj = memnew(NativeObject);
             res_obj->native = env->NewGlobalRef(env->CallObjectMethodA((jobject)native, method, values));
-            res_obj->native = env->NewGlobalRef(env->CallObjectMethodA((jobject)native, method, values));
             return Variant(res_obj);
         }
     }else if (s_sig.match("^[")) {
