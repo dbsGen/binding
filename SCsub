@@ -1,0 +1,8 @@
+# SCsub
+Import('env')
+
+dir = env.Dir('.').abspath
+if env['platform'] == 'android':
+    env.add_source_files(env.modules_sources,[dir+"/register_types.cpp", dir+"/native_class.cpp", dir+"/java_support.cpp"])
+else:
+    env.add_source_files(env.modules_sources,[dir+"/register_types.cpp", dir+"/native_class.cpp", dir+"/not_support.cpp"])
