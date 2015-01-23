@@ -1,11 +1,12 @@
 #include <jni.h>
+//#include "/usr/lib/jvm/java-7-openjdk-amd64/include/jni.h"
 #include <android/log.h>
 #include "../../core/ustring.h"
 #include "../../core/variant.h"
 #include "../../core/reference.h"
 #include "native_class.h"
 
-#define TAG "gen_debug"
+#define TAG "gen_debug" // 这个是自定义的LOG的标识
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG,TAG ,__VA_ARGS__) // 定义LOGD类型
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,TAG ,__VA_ARGS__) // 定义LOGI类型
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN,TAG ,__VA_ARGS__) // 定义LOGW类型
@@ -68,7 +69,7 @@ JNIEXPORT void JNICALL Java_com_android_godot_JavaSupport_cEmitSignal(JNIEnv *en
     bool found = false;
     for (int n = 0; n < NativeObject::_cached_count; n++) {
         NativeObject *object = NativeObject::_cached_objects[n];
-        if (env->IsSameObject(sender, (jobject)object->native)) {
+        if (object->native && env->IsSameObject(sender, (jobject)object->native)) {
             found = true;
             Variant vars[5];
             for (int n = 0; n < 5 && n < length; n++) {
@@ -105,7 +106,7 @@ JNIEXPORT void JNICALL Java_com_android_godot_JavaSupport_cAddUserSignal(JNIEnv 
     bool found = false;
     for (int n = 0; n < NativeObject::_cached_count; n++) {
         NativeObject *object = NativeObject::_cached_objects[n];
-        if (env->IsSameObject(sender, (jobject)object->native)) {
+        if (object->native && env->IsSameObject(sender, (jobject)object->native)) {
             found = true;
             MethodInfo methodInfo(str_signal);
             for (int n = 0; n < length; n++) {
@@ -340,51 +341,97 @@ void delete_native_object(const void *native) {
     env->DeleteGlobalRef((jobject)native);
 }
 
-bool set_native_value(const void *native, const StringName& p_name,const Variant& p_value) {
+bool set_native_value(const void *native, bool is_static, const StringName& p_name,const Variant& p_value) {
     JNIEnv *env = get_env();
-    jclass cls = env->GetObjectClass((jobject)native);
+    jclass cls;
+    if (is_static) {
+        cls = (jclass)native;
+    }else {
+        cls = env->GetObjectClass((jobject)native);
+    }
     if(!cls) {
         return false;
     }
-    jmethodID memberSig = env->GetStaticMethodID(SupportClass, "memberSig", "(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/String;");
-    jstring j_member_sig = (jstring)env->CallStaticObjectMethod(SupportClass, memberSig, (jobject)native, env->NewStringUTF(String(p_name).utf8().get_data()));
+    jmethodID memberSig = env->GetStaticMethodID(SupportClass, "memberSig", "(Ljava/lang/Object;ZLjava/lang/String;)Ljava/lang/String;");
+    jstring j_member_sig = (jstring)env->CallStaticObjectMethod(SupportClass, memberSig, (jobject)native, is_static, env->NewStringUTF(String(p_name).utf8().get_data()));
 
     const char *c_sig = (const char*)env->GetStringUTFChars(j_member_sig, NULL);
-    jfieldID fieldID = env->GetFieldID(cls, String(p_name).utf8().get_data(), c_sig);
+    jfieldID fieldID;
+    if (is_static) {
+        fieldID = env->GetStaticFieldID(cls, String(p_name).utf8().get_data(), c_sig);
+    }else {
+        fieldID = env->GetFieldID(cls, String(p_name).utf8().get_data(), c_sig);
+    }
     String s_sig(c_sig);
     bool ret = false;
     if (s_sig == "Z") {
-        env->SetBooleanField((jobject)native, fieldID, (bool)p_value);
+        if (is_static) {
+            env->SetStaticBooleanField(cls, fieldID, (bool)p_value);
+        }else {
+            env->SetBooleanField((jobject)native, fieldID, (bool)p_value);
+        }
         ret = true;
     }else if (s_sig == "I") {
-        env->SetIntField((jobject)native, fieldID, (int)p_value);
+        if (is_static) {
+            env->SetStaticIntField(cls, fieldID, (int)p_value);
+        }else {
+            env->SetIntField((jobject)native, fieldID, (int)p_value);
+        }
         ret = true;
     }else if (s_sig == "B") {
-        env->SetByteField((jobject)native, fieldID, (jbyte)((int)p_value));
+        if (is_static) {
+            env->SetStaticByteField(cls, fieldID, (jbyte)((int)p_value));
+        }else {
+            env->SetByteField((jobject)native, fieldID, (jbyte)((int)p_value));
+        }
         ret = true;
     }else if (s_sig == "C") {
-        env->SetCharField((jobject)native, fieldID, (unsigned char)p_value);
+        if (is_static) {
+            env->SetStaticCharField(cls, fieldID, (unsigned char)p_value);
+        }else {
+            env->SetCharField((jobject)native, fieldID, (unsigned char)p_value);
+        }
         ret = true;
     }else if (s_sig == "D") {
-        env->SetDoubleField((jobject)native, fieldID, (double)p_value);
+        if (is_static) {
+            env->SetStaticDoubleField(cls, fieldID, (double)p_value);
+        }else {
+            env->SetDoubleField((jobject)native, fieldID, (double)p_value);
+        }
         ret = true;
     }else if (s_sig == "F") {
-        env->SetFloatField((jobject)native, fieldID, (float)p_value);
+        if (is_static) {
+            env->SetStaticFloatField(cls, fieldID, (float)p_value);
+        }else {
+            env->SetFloatField((jobject)native, fieldID, (float)p_value);
+        }
         ret = true;
     }else if (s_sig == "L") {
-        env->SetLongField((jobject)native, fieldID, (jlong)p_value);
+        if (is_static) {
+            env->SetStaticLongField(cls, fieldID, (jlong)p_value);
+        }else {
+            env->SetLongField((jobject)native, fieldID, (jlong)p_value);
+        }
         ret = true;
     }else {
         if (s_sig[0] == 'L') {
             if (p_value.get_type() == Variant::STRING) {
                 String p_str(p_value);
-                env->SetObjectField((jobject)native, fieldID, (jobject)env->NewStringUTF(p_str.utf8().get_data()));
+                if (is_static) {
+                    env->SetStaticObjectField(cls, fieldID, (jobject)env->NewStringUTF(p_str.utf8().get_data()));
+                } else {
+                    env->SetObjectField((jobject)native, fieldID, (jobject)env->NewStringUTF(p_str.utf8().get_data()));
+                }
                 ret = true;
             }else {
                 const Object *obj = (const Object*)p_value;
                 if (obj->get_type() == "NativeObject") {
                     const NativeObject *native_object = obj->cast_to<NativeObject>();
-                    env->SetObjectField((jobject)native, fieldID, (jobject)native_object->native);
+                    if (is_static) {
+                        env->SetStaticObjectField(cls, fieldID, (jobject)native_object->native);
+                    }else {
+                        env->SetObjectField((jobject)native, fieldID, (jobject)native_object->native);
+                    }
                     ret = true;
                 }else {
                     ret = false;
@@ -399,51 +446,61 @@ bool set_native_value(const void *native, const StringName& p_name,const Variant
     env->ReleaseStringUTFChars(j_member_sig, c_sig);
     return ret;
 }
-bool get_native_value(const void *native, const StringName& p_name,Variant &r_ret) {
+bool get_native_value(const void *native, bool is_static, const StringName& p_name,Variant &r_ret) {
     JNIEnv *env = get_env();
-    jclass cls = env->GetObjectClass((jobject)native);
+    jclass cls;
+    if (is_static) {
+        cls = (jclass)native;
+    }else {
+        cls = env->GetObjectClass((jobject)native);
+    }
     if(!cls) {
         return false;
     }
-    jmethodID memberSig = env->GetStaticMethodID(SupportClass, "memberSig", "(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/String;");
-    jstring j_member_sig = (jstring)env->CallStaticObjectMethod(SupportClass, memberSig, (jobject)native, env->NewStringUTF(String(p_name).utf8().get_data()));
+    jmethodID memberSig = env->GetStaticMethodID(SupportClass, "memberSig", "(Ljava/lang/Object;ZLjava/lang/String;)Ljava/lang/String;");
+    jstring j_member_sig = (jstring)env->CallStaticObjectMethod(SupportClass, memberSig, (jobject)native, is_static, env->NewStringUTF(String(p_name).utf8().get_data()));
 
     const char *c_sig = (const char *)env->GetStringUTFChars(j_member_sig, NULL);
-    jfieldID fieldID = env->GetFieldID(cls, String(p_name).utf8().get_data(), c_sig);
+    jfieldID fieldID;
+    if (is_static) {
+        fieldID = env->GetStaticFieldID(cls, String(p_name).utf8().get_data(), c_sig);
+    }else {
+        fieldID = env->GetFieldID(cls, String(p_name).utf8().get_data(), c_sig);
+    }
     String s_sig;
     s_sig.parse_utf8(c_sig,env->GetStringUTFLength(j_member_sig));
     bool ret = false;
     if (s_sig == "Z") {
-        r_ret = Variant(env->GetBooleanField((jobject)native, fieldID));
+        r_ret = Variant(is_static ? env->GetStaticBooleanField(cls, fieldID) : env->GetBooleanField((jobject)native, fieldID));
         ret = true;
     }else if (s_sig == "I") {
-        r_ret = Variant(env->GetIntField((jobject)native, fieldID));
+        r_ret = Variant(is_static ? env->GetStaticIntField(cls, fieldID): env->GetIntField((jobject)native, fieldID));
         ret = true;
     }else if (s_sig == "B") {
-        r_ret = Variant(env->GetByteField((jobject)native, fieldID));
+        r_ret = Variant(is_static?env->GetStaticByteField(cls, fieldID):env->GetByteField((jobject)native, fieldID));
         ret = true;
     }else if (s_sig == "C") {
-        r_ret = Variant(env->GetCharField((jobject)native, fieldID));
+        r_ret = Variant(is_static?env->GetStaticCharField(cls, fieldID):env->GetCharField((jobject)native, fieldID));
         ret = true;
     }else if (s_sig == "D") {
-        r_ret = Variant(env->GetDoubleField((jobject)native, fieldID));
+        r_ret = Variant(is_static?env->GetStaticDoubleField(cls, fieldID):env->GetDoubleField((jobject)native, fieldID));
         ret = true;
     }else if (s_sig == "F") {
-        r_ret = Variant(env->GetFloatField((jobject)native, fieldID));
+        r_ret = Variant(is_static?env->GetStaticFloatField(cls, fieldID):env->GetFloatField((jobject)native, fieldID));
         ret = true;
     }else if (s_sig == "L") {
-        r_ret = Variant(env->GetLongField((jobject)native, fieldID));
+        r_ret = Variant(is_static?env->GetStaticLongField(cls, fieldID):env->GetLongField((jobject)native, fieldID));
         ret = true;
     }else if (s_sig[0] == 'L') {
         if (s_sig == "Ljava/lang/String;") {
-            jstring j_str = (jstring)env->GetObjectField((jobject)native, fieldID);
+            jstring j_str = (jstring)(is_static?env->GetStaticObjectField(cls, fieldID):env->GetObjectField((jobject)native, fieldID));
             const char* chs = (const char*)env->GetStringUTFChars(j_str, NULL);
             r_ret = Variant(String(chs));
             env->ReleaseStringUTFChars(j_str, chs);
             ret = true;
         }else {
             Ref<NativeObject> res_obj = memnew(NativeObject);
-            res_obj->native = env->NewGlobalRef(env->GetObjectField((jobject)native, fieldID));
+            res_obj->native = env->NewGlobalRef(is_static?env->GetStaticObjectField(cls, fieldID):env->GetObjectField((jobject)native, fieldID));
             r_ret = Variant(res_obj);
             ret = true;
         }
@@ -536,6 +593,7 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
             return ret;
         }else {
             Ref<NativeObject> res_obj = memnew(NativeObject);
+            res_obj->native = env->NewGlobalRef(env->CallObjectMethodA((jobject)native, method, values));
             res_obj->native = env->NewGlobalRef(env->CallObjectMethodA((jobject)native, method, values));
             return Variant(res_obj);
         }

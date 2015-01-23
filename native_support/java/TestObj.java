@@ -5,6 +5,7 @@ public class TestObj {
     public int a = 1;
     public String b = "nihao";
     public float c = 1.2f;
+    public static String d = "static method";
 
     public TestObj(int set_a) {
         a = set_a;

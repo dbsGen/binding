@@ -113,11 +113,20 @@ public class JavaSupport {
         return obj.getClass().toString().replaceFirst("^class +", "");
     }
 
-    public static String memberSig(Object obj, String memberName) {
-        Class cls = obj.getClass();
+    public static String memberSig(Object obj, boolean isStatic , String memberName) {
+        Class cls;
+        if (isStatic) {
+            cls = (Class)obj;
+        }else {
+            cls = obj.getClass();
+        }
         try {
             Field field = cls.getField(memberName);
-            return signature(field.getType());
+            if (Modifier.isStatic(field.getModifiers()) == isStatic) {
+                return signature(field.getType());
+            }else {
+                return "";
+            }
         }catch (Exception e) {
             System.out.print(e);
             return "";

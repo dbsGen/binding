@@ -4,5 +4,7 @@ Import('env')
 dir = env.Dir('.').abspath
 if env['platform'] == 'android':
     env.add_source_files(env.modules_sources,[dir+"/register_types.cpp", dir+"/native_class.cpp", dir+"/java_support.cpp"])
+if env['platform'] == 'isim' or env['platform'] == 'iphone' or env['platform'] == 'osx':
+	env.add_source_files(env.modules_sources,[dir+"/register_types.cpp", dir+"/native_class.cpp", dir+"/objc_support.mm", dir+"/objc/MyObject.m", dir+"/objc/GOSupport.mm"])
 else:
     env.add_source_files(env.modules_sources,[dir+"/register_types.cpp", dir+"/native_class.cpp", dir+"/not_support.cpp"])

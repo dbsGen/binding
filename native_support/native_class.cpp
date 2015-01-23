@@ -1,10 +1,10 @@
 #include "native_class.h"
 
 void NativeFactory::_bind_methods() {
-    ObjectTypeDB::bind_method("java",&NativeFactory::java);
+    ObjectTypeDB::bind_method("find",&NativeFactory::find);
 }
 
-Variant NativeFactory::java(const String package_name) const {
+Variant NativeFactory::find(const String package_name) const {
     void *nc = native_class(package_name);
     if (nc) {
         Ref<NativeClass> _class = memnew(NativeClass);
@@ -46,12 +46,22 @@ Variant NativeClass::_new(const Variant **p_args, int p_argcount, Variant::CallE
     }
     return Variant();
 }
+void NativeClass::setvar(const Variant& p_key, const Variant& p_value,bool *r_valid) {
+    *r_valid = set_native_value(native, true, p_key, p_value);
+}
+
+Variant NativeClass::getvar(const Variant& p_key, bool *r_valid) const {
+    Variant ret;
+    *r_valid = get_native_value(native, true, p_key, ret);
+    return ret;
+}
 
 NativeObject **NativeObject::_cached_objects = NULL;
 int NativeObject::_cached_count = 0;
 int NativeObject::_cached_limit = 10;
 
 NativeObject::NativeObject() {
+    native = NULL;
     if (!_cached_objects) {
         _cached_objects = (NativeObject **)memalloc(_cached_limit*sizeof(NativeObject*));
         _cached_objects[0] = this;
@@ -86,12 +96,12 @@ void NativeObject::_bind_methods() {
 }
 
 void NativeObject::setvar(const Variant& p_key, const Variant& p_value,bool *r_valid) {
-    *r_valid = set_native_value(native, p_key, p_value);
+    *r_valid = set_native_value(native, false, p_key, p_value);
 }
 
 Variant NativeObject::getvar(const Variant& p_key, bool *r_valid) const {
     Variant ret;
-    *r_valid = get_native_value(native, p_key, ret);
+    *r_valid = get_native_value(native, false, p_key, ret);
     return ret;
 }
 
