@@ -52,7 +52,7 @@ Variant value_from_jobject(String s_type, jobject obj, JNIEnv *env) {
             return Variant(s_str);
         }else {
             Ref<NativeObject> res_obj = memnew(NativeObject);
-            res_obj->native = obj;
+            res_obj->native = env->NewGlobalRef(obj);
             return Variant(res_obj);
         }
     }else {
@@ -593,7 +593,6 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
             return ret;
         }else {
             Ref<NativeObject> res_obj = memnew(NativeObject);
-            res_obj->native = env->NewGlobalRef(env->CallObjectMethodA((jobject)native, method, values));
             res_obj->native = env->NewGlobalRef(env->CallObjectMethodA((jobject)native, method, values));
             return Variant(res_obj);
         }

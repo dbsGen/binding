@@ -7,6 +7,7 @@
 //
 
 #import "MyObject.h"
+#import "NSObject+GDScriptSupport.h"
 #import <Foundation/Foundation.h>
 
 @implementation MyObject
@@ -17,8 +18,13 @@
     if (self) {
         _a = 12;
         self.b = 123;
+        [self addUserSignal:@"test_event" withParams:@[@"str"]];
     }
     return self;
+}
+
+- (void)emitSignal {
+	[self emitSignal:@"test_event" withParams:@[@"from test event"]];
 }
 
 + (NSString*)getOutput:(NSString*)input

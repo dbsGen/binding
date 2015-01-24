@@ -10,6 +10,7 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import "objc/MyObject.h"
+#import "objc/NSObject+GDScriptSupport.h"
 
 typedef id (*id_IMP)(id, SEL, ...);
 typedef int (*int_IMP)(id, SEL, ...);
@@ -24,21 +25,14 @@ typedef struct _info {
     const Variant *var;
     size_t size;
 } ArgInfomation;
+NativeObject *_now_init = NULL;
 
 void *native_class(const String name) {
-    NSLog(@"Find object-c class %s", name.utf8().get_data());
     Class cls = objc_getClass(name.utf8().get_data());
-    if (cls) {
-        NSLog(@"Class found");
-    } else {
-        NSLog(@"Class is Null");
-        NSLog(@"%@", objc_getClass("MyObject"));
-    }
     [cls retain];
     return cls;
 }
 void *new_native_object(const String name, Ref<NativeObject> _will_init, const void *native_class, const Variant** p_args,int p_argcount) {
-    NSLog(@"start new object-c Object %s", name.utf8().get_data());
     Class cls = objc_getClass(name.utf8().get_data());
     if (!cls) {
         return NULL;
@@ -64,9 +58,9 @@ void *new_native_object(const String name, Ref<NativeObject> _will_init, const v
                 switch (chs[0]) {
                     case 'i':
                     case 'I':
-                    //                    case 'c':
-                    //                    case 'q':
-                    //                    case 's':
+                    // case 'c':
+                    // case 'q':
+                    // case 's':
                     {
                         if (var->get_type() == Variant::REAL ||
                             var->get_type() == Variant::BOOL ||
@@ -209,12 +203,14 @@ void *new_native_object(const String name, Ref<NativeObject> _will_init, const v
                 }
                 off += info.size;
             }
+            _now_init = *_will_init;
             id result = [cls alloc];
             id_IMP imp = (id_IMP)method_getImplementation(m);
             imp(result, method_getName(m), *(void**)mem);
             [pool release];
             free(methods);
             free(mem);
+            _now_init = NULL;
             return result;
         }
     }
@@ -595,6 +591,14 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
                         }
                         ret = true;
                     }
+                    case 'v':
+                    {
+                        void_IMP imp = (void_IMP)method_getImplementation(m);
+                        imp((id)native, selector);
+                        r_ret = Variant();
+                        ret = true;
+                    }
+                        break;
                     case '#':
                     {
                         class_IMP imp = (class_IMP)method_getImplementation(m);
@@ -711,6 +715,7 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
                         }
                             
                         default:
+                            match = false;
                             break;
                     }
                     mt += info.size;
@@ -852,3 +857,110 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
     r_error.error = Variant::CallError::CALL_ERROR_INVALID_METHOD;
     return Variant();
 }
+
+#pragma mark - GDScriptSupport
+
+Variant variant_from_id(id object) {
+    if (!object)
+    {
+        return Variant();
+    }else {
+        if ([object isKindOfClass:[NSString class]])
+        {
+            return Variant(String([object UTF8String]));
+        }else if ([object isKindOfClass:[NSNumber class]]) {
+            const char *c_type = [object objCType];
+            switch (c_type[0]) {
+                case 'i':
+                case 'I':
+                {
+                    return Variant([object intValue]);
+                }
+                    break;
+                case 'B':
+                {
+                    return Variant([object boolValue]);
+                }
+                    break;
+                case 'f':
+                case 'F':
+                {
+                    return Variant([object floatValue]);
+                }
+                    break;
+                default:
+                    return Variant();
+                    break;
+            }
+        }else {
+            Ref<NativeObject> res_obj = memnew(NativeObject);
+            res_obj->native = [object retain];
+            return Variant(res_obj);
+        }
+    }
+    return Variant();
+}
+
+@implementation NSObject (GDScriptSupport)
+
+- (void)addUserSignal:(NSString *)signal withParams:(NSArray *)params {
+    String str_signal([signal UTF8String]);
+    bool found = false;
+    int length = [params count];
+    for (int n = 0; n < NativeObject::_cached_count; n++) {
+        NativeObject *object = NativeObject::_cached_objects[n];
+        if (object->native == self)
+        {
+            found = true;
+            MethodInfo methodInfo(str_signal);
+            for (int n = 0; n < 5 && n < length; n++) {
+                String str_param([[params objectAtIndex:n] UTF8String]);
+                PropertyInfo propertyInfo;
+                propertyInfo.name = str_param;
+                methodInfo.arguments.push_back(propertyInfo);
+            }
+            object->add_user_signal(methodInfo);
+        }
+    }
+    if (!found)
+    {
+        if (_now_init) {
+            MethodInfo methodInfo(str_signal);
+            for (int n = 0; n < length; n++) {
+                String str_param([[params objectAtIndex:n] UTF8String]);
+                PropertyInfo propertyInfo;
+                propertyInfo.name = str_param;
+                methodInfo.arguments.push_back(propertyInfo);
+            }
+            _now_init->add_user_signal(methodInfo);
+        }
+    }
+}
+
+- (void)emitSignal:(NSString *)signal withParams:(NSArray *)params {
+    String str_signal([signal UTF8String]);
+    bool found = false;
+    int length = [params count];
+    for (int n = 0; n < NativeObject::_cached_count; n++) {
+        NativeObject *object = NativeObject::_cached_objects[n];
+        if (object->native == self) {
+            found = true;
+            Variant vars[5];
+            for (int n = 0; n < 5 && n < length; n++) {
+                vars[n] = variant_from_id([params objectAtIndex:n]);
+            }
+            object->emit_signal(StringName(str_signal), vars[0], vars[1], vars[2], vars[3], vars[4]);
+        }
+    }
+    if (!found) {
+        if (_now_init) {
+            Variant vars[5];
+            for (int n = 0; n < 5 && n < length; n++) {
+                vars[n] = variant_from_id([params objectAtIndex:n]);
+            }
+            _now_init->emit_signal(StringName(str_signal), vars[0], vars[1], vars[2], vars[3], vars[4]);
+        }
+    }
+}
+
+@end

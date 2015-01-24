@@ -19,5 +19,9 @@ For Object-C:
 Signal in Java:
 
       JavaSupport.addUserSignal(this, "event_test2", "str");
-      JavaSupport.emitSignal(this, "event_test2", "this is test");
+      JavaSupport.emitSignal(this, "event_test2", "event from java");
 
+Signal in Object-C:
+
+	  [self addUserSignal:"event_test" withParams:@[@"param"]];
+	  [self emitSignal:"event_test" withParams:@[@"event from object-c"]];

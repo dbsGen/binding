@@ -18,6 +18,7 @@ typedef struct _Struct {
 
 @property (nonatomic, assign) float b;
 
+- (void)emitSignal;
 + (NSString*)getOutput:(NSString*)input;
 
 @end
