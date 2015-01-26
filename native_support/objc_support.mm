@@ -234,7 +234,7 @@ bool set_native_value(const void *native, bool is_static, const StringName& p_na
         // check if it is a property.
         if (pro) {
             int len = chr_string.length();
-            char setter_name[5+len];
+            char setter_name[4+len];
             strcpy(setter_name, "set");
             if (c_name[0] >= 'a' && c_name[0] <= 'z')
             {  
@@ -245,86 +245,15 @@ bool set_native_value(const void *native, bool is_static, const StringName& p_na
             for (int n = 1; n < len; n++) {
                 setter_name[n+3] = c_name[n];
             }
-            setter_name[len+3] = ':';
-            setter_name[len+4] = 0;
+            setter_name[len+3] = 0;
 
-            SEL sel = sel_registerName(setter_name);
-            Method m = class_getInstanceMethod(cls, sel);
-            if (!m)
-                return false;
-            NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-            unsigned int count = 0;
-            objc_property_attribute_t *p_a = property_copyAttributeList(pro, &count);
-            char t[30];
-            for (int n = 0; n < count; n++) {
-                if (strcmp(p_a[n].name, "T") == 0) {
-                    memcpy(t, p_a[n].value, 30);
-                    break;
-                }
-            }
-            switch (t[0]) {
-                case 'i':
-                case 'I':
-                {
-                    typedef void (*i_s_IMP)(id, SEL, int);
-                    i_s_IMP imp = (i_s_IMP)method_getImplementation(m);
-                    imp((id)native, sel, (int)p_value);
-                }
-                    break;
-                case 'B':
-                {
-                    typedef void (*b_s_IMP)(id, SEL, bool);
-                    b_s_IMP imp = (b_s_IMP)method_getImplementation(m);
-                    imp((id)native, sel, (bool)p_value);
-                }
-                    break;
-                case 'f':
-                case 'F':
-                {
-                    typedef void (*f_s_IMP)(id, SEL, float);
-                    f_s_IMP imp = (f_s_IMP)method_getImplementation(m);
-                    imp((id)native, sel, (float)p_value);
-                }
-                    break;
-                case '@':
-                {
-                    void_IMP imp = (void_IMP)method_getImplementation(m);
-                    if (strcmp(t, "@\"NSString\"") == 0) {
-                        String p_str(p_value);
-                        NSString *obj_str = [[NSString alloc] initWithUTF8String:p_str.utf8().get_data()];
-                        imp((id)native, sel, obj_str);
-                        [obj_str release];
-                    }else {
-                        const Object *obj = (const Object*)p_value;
-                        if (obj->get_type() == "NativeObject") {
-                            const NativeObject *native_object = obj->cast_to<NativeObject>();
-                            imp((id)native, sel, (id)native_object->native);
-                        }else {
-                            [pool release];
-                            return false;
-                        }
-                    }
-                }
-                case '#':
-                {
-                    const Object *obj = (const Object*)p_value; 
-                    if (obj->get_type() == "NativeClass")
-                    {
-                        const NativeClass *native_class = obj->cast_to<NativeClass>();
-                        void_IMP imp = (void_IMP)method_getImplementation(m);
-                        imp((id)native, sel, (Class)native_class->native);
-                    }else {
-                        [pool release];
-                        return false;
-                    }
-                }
-                        break;
-                    
-                default:
-                    [pool release];
-                    return false;
-            }
-            [pool release];
+            StringName method_name(setter_name);
+            Variant::CallError error;
+            const Variant* param[1];
+            param[0] = &p_value; 
+            error.error = Variant::CallError::CALL_OK;
+            call_native_method(native, false, method_name, param, 1, error);
+            return error.error == Variant::CallError::CALL_OK;
         }else {
             Ivar var = class_getInstanceVariable(cls, c_name);
             if (var) {
@@ -401,72 +330,12 @@ bool get_native_value(const void *native, bool is_static, const StringName& p_na
         objc_property_t pro = class_getProperty(cls, c_name);
         // check if it is a property.
         if (pro) {
-            SEL sel = sel_registerName(c_name);
-            Method m = class_getInstanceMethod(cls, sel);
-            if (!m)
-                return NO;
-            NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-            unsigned int count = 0;
-            objc_property_attribute_t *p_a = property_copyAttributeList(pro, &count);
-            char t[30];
-            for (int n = 0; n < count; n++) {
-                if (strcmp(p_a[n].name, "T") == 0) {
-                    memcpy(t, p_a[n].value, 30);
-                    break;
-                }
-            }
-            switch (t[0]) {
-                case 'i':
-                case 'I':
-                {
-                    int_IMP imp = (int_IMP)method_getImplementation(m);
-                    r_ret = Variant(imp((id)native, sel));
-                }
-                    break;
-                case 'B':
-                {
-                    bool_IMP imp = (bool_IMP)method_getImplementation(m);
-                    r_ret = Variant(imp((id)native, sel));
-                }
-                    break;
-                case 'f':
-                case 'F':
-                {
-                    float_IMP imp = (float_IMP)method_getImplementation(m);
-                    r_ret = Variant(imp((id)native, sel));
-                }
-                    break;
-                case '@':
-                {
-                    id_IMP imp = (id_IMP)method_getImplementation(m);
-                    if (strcmp(t, "@\"NSString\"") == 0) {
-                        NSString *string = imp((id)native, sel);
-                        r_ret = Variant(String([string UTF8String]));
-                    }else {
-                        id object = imp((id)native, sel);
-                        Ref<NativeObject> res_obj = memnew(NativeObject);
-                        res_obj->native = [object retain];
-                        r_ret = Variant(res_obj);
-                    }
-                }
-                case '#':
-                {
-                    class_IMP imp = (class_IMP)method_getImplementation(m);
-                    Ref<NativeClass> _class = memnew(NativeClass);
-                    Class r_cls = imp((id)native, sel);
-                    _class->_native_type_name = String(class_getName(r_cls));
-                    _class->native = [r_cls retain];
-                    r_ret = Variant(_class);
-                }
-                        break;
-                    
-                default:
-                    free(p_a);
-                    [pool release];
-                    return NO;
-            }
-            free(p_a);
-            [pool release];
+
+            StringName method_name(c_name);
+            Variant::CallError error;
+            error.error = Variant::CallError::CALL_OK;
+            r_ret = call_native_method(native, false, method_name, NULL, 0, error);
+            return error.error == Variant::CallError::CALL_OK;
         }else {
             Ivar var = class_getInstanceVariable(cls, c_name);
             if (var) {
@@ -625,6 +494,7 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
         }else {
             Method m = methods[i];
             SEL selector = method_getName(m);
+
             if ([NSStringFromSelector(selector) hasPrefix:[objc_method stringByAppendingString:@":"]] &&
                 method_getNumberOfArguments(m)-2 == p_argcount)
             {
@@ -728,7 +598,8 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
                 size_t off=0;
                 for (int n = 0; n < p_argcount; n++) {
                     ArgInfomation info = arg_infos[n];
-                    
+
+                    //TODO: only works fine when p_argcount == 1
                     switch (info.type) {
                         case 'i':
                         case 'I':

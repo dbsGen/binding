@@ -20,5 +20,6 @@ typedef struct _Struct {
 
 - (void)emitSignal;
 + (NSString*)getOutput:(NSString*)input;
+- (float)print:(float)a add:(int)b;
 
 @end

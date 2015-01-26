@@ -12,6 +12,10 @@
 
 @implementation MyObject
 
+- (float)print:(float)a add:(int)b {
+    NSLog(@"a:%f, b:%d = %f", a, b, a+b);
+    return a + b;
+}
 
 - (id)init {
     self = [super init];
