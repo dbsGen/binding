@@ -27,6 +27,75 @@ typedef struct _info {
 } ArgInfomation;
 NativeObject *_now_init = NULL;
 
+#define CallIMPId(_IMP, _OBJ, _SEL)\
+    {\
+        id res = NULL;\
+        switch (n) {\
+            case 1:\
+            res = _IMP((id)obj, sel, mem[0]);\
+            break;\
+            case 2:\
+            res = _IMP((id)obj, sel, mem[0], mem[1]);\
+            break;\
+            case 3:\
+            res = _IMP((id)obj, sel, mem[0], mem[1], mem[2]);\
+            break;\
+            case 4:\
+            res = _IMP((id)obj, sel, mem[0], mem[1], mem[2], mem[3]);\
+            break;\
+            case 5:\
+            res = _IMP((id)obj, sel, mem[0], mem[1], mem[2], mem[3], mem[4]);\
+            break;\
+            default:\
+            break;\
+        }\
+        res;\
+    }
+#define CallIMP(_IMP, _OBJ, _SEL)\
+    {\
+        switch (n) {\
+            case 1:\
+            _IMP((id)obj, sel, mem[0]);\
+            break;\
+            case 2:\
+            _IMP((id)obj, sel, mem[0], mem[1]);\
+            break;\
+            case 3:\
+            _IMP((id)obj, sel, mem[0], mem[1], mem[2]);\
+            break;\
+            case 4:\
+            _IMP((id)obj, sel, mem[0], mem[1], mem[2], mem[3]);\
+            break;\
+            case 5:\
+            _IMP((id)obj, sel, mem[0], mem[1], mem[2], mem[3], mem[4]);\
+            break;\
+            default:\
+            break;\
+        }\
+    }
+#define CallIMPRet(_IMP, _OBJ, _SEL)\
+    {\
+        switch (n) {\
+            case 1:\
+            r_ret = Variant(_IMP((id)obj, sel, mem[0]));\
+            break;\
+            case 2:\
+            r_ret = Variant(_IMP((id)obj, sel, mem[0], mem[1]));\
+            break;\
+            case 3:\
+            r_ret = Variant(_IMP((id)obj, sel, mem[0], mem[1], mem[2]));\
+            break;\
+            case 4:\
+            r_ret = Variant(_IMP((id)obj, sel, mem[0], mem[1], mem[2], mem[3]));\
+            break;\
+            case 5:\
+            r_ret = Variant(_IMP((id)obj, sel, mem[0], mem[1], mem[2], mem[3], mem[4]));\
+            break;\
+            default:\
+            break;\
+        }\
+    }
+
 void *native_class(const String name) {
     Class cls = objc_getClass(name.utf8().get_data());
     [cls retain];
@@ -145,7 +214,7 @@ void *new_native_object(const String name, Ref<NativeObject> _will_init, const v
                 continue;
             }
             
-            char *mem = (char*)malloc(mt);
+            void** mem = (void**)malloc(sizeof(void*)*p_argcount);
             size_t off=0;
             NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
             for (int n = 0; n < p_argcount; n++) {
@@ -156,20 +225,20 @@ void *new_native_object(const String name, Ref<NativeObject> _will_init, const v
                     case 'I':
                     {
                         int i = info.var->operator int();
-                        memcpy(mem+off, &i, info.size);
+                        memcpy(mem+n, &i, info.size);
                     }
                         break;
                     case 'B':
                     {
                         BOOL b = info.var->operator bool();
-                        memcpy(mem+off, &b, info.size);
+                        memcpy(mem+n, &b, info.size);
                     }
                         break;
                     case 'f':
                     case 'F':
                     {
                         float f = info.var->operator float();
-                        memcpy(mem+off, &f, info.size);
+                        memcpy(mem+n, &f, info.size);
                     }
                         break;
                     case '@':
@@ -177,12 +246,12 @@ void *new_native_object(const String name, Ref<NativeObject> _will_init, const v
                         if (info.var->get_type() == Variant::STRING) {
                             String str = info.var->operator String();
                             NSString *string = [NSString stringWithUTF8String:str.utf8().get_data()];
-                            memcpy(mem+off, &string, info.size);
+                            memcpy(mem+n, &string, info.size);
                         }else if (info.var->get_type() == Variant::OBJECT) {
                             const Object *obj = info.var->operator Object*();
                             if (obj->get_type() == "NativeObject") {
                                 const NativeObject *native_object = obj->cast_to<NativeObject>();
-                                memcpy(mem+off, native_object->native, info.size);
+                                memcpy(mem+n, native_object->native, info.size);
                             }
                         }
                     }
@@ -193,7 +262,7 @@ void *new_native_object(const String name, Ref<NativeObject> _will_init, const v
                             const Object *obj = info.var->operator Object*();
                             if (obj->get_type() == "NativeClass") {
                                 const NativeObject *native_object = obj->cast_to<NativeObject>();
-                                memcpy(mem+off, native_object->native, info.size);
+                                memcpy(mem+n, native_object->native, info.size);
                             }
                         }
                     }
@@ -206,7 +275,7 @@ void *new_native_object(const String name, Ref<NativeObject> _will_init, const v
             _now_init = *_will_init;
             id result = [cls alloc];
             id_IMP imp = (id_IMP)method_getImplementation(m);
-            imp(result, method_getName(m), *(void**)mem);
+            CallIMP(imp, result, method_getName(m));
             [pool release];
             free(methods);
             free(mem);
@@ -491,7 +560,7 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
                     return r_ret;
                 }
             }
-        }else {
+        }else if (p_argcount <= 5){
             Method m = methods[i];
             SEL selector = method_getName(m);
 
@@ -594,31 +663,29 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
                 {
                     continue;
                 }
-                Byte *mem = (Byte*)malloc(mt);
-                size_t off=0;
+                void** mem = (void*)malloc(p_argcount*sizeof(void*));
                 for (int n = 0; n < p_argcount; n++) {
                     ArgInfomation info = arg_infos[n];
 
-                    //TODO: only works fine when p_argcount == 1
                     switch (info.type) {
                         case 'i':
                         case 'I':
                         {
                             int i = info.var->operator int();
-                            memcpy(mem+off, (int*)&i, info.size);
+                            memcpy(mem+n, (int*)&i, info.size);
                         }
                             break;
                         case 'B':
                         {
                             BOOL b = info.var->operator bool();
-                            memcpy(mem+off, (bool*)&b, info.size);
+                            memcpy(mem+n, (bool*)&b, info.size);
                         }
                             break;
                         case 'f':
                         case 'F':
                         {
                             float f = info.var->operator float();
-                            memcpy(mem+off, &f, info.size);
+                            memcpy(mem+n, &f, info.size);
                         }
                             break;
                         case '@':
@@ -626,12 +693,12 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
                             if (info.var->get_type() == Variant::STRING) {
                                 String str = info.var->operator String();
                                 NSString *string = [NSString stringWithUTF8String:str.utf8().get_data()];
-                                memcpy(mem+off, (id)&string, info.size);
+                                memcpy(mem+n, (id)&string, info.size);
                             }else if (info.var->get_type() == Variant::OBJECT) {
                                 const Object *obj = info.var->operator Object*();
                                 if (obj->get_type() == "NativeObject") {
                                     const NativeObject *native_object = obj->cast_to<NativeObject>();
-                                    memcpy(mem+off, (id)native_object->native, info.size);
+                                    memcpy(mem+n, (id)native_object->native, info.size);
                                 }
                             }
                         }
@@ -642,7 +709,7 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
                                 const Object *obj = info.var->operator Object*();
                                 if (obj->get_type() == "NativeClass") {
                                     const NativeObject *native_object = obj->cast_to<NativeObject>();
-                                    memcpy(mem+off, (id)native_object->native, info.size);
+                                    memcpy(mem+n, (id)native_object->native, info.size);
                                 }
                             }
                         }
@@ -650,9 +717,9 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
                         default:
                             break;
                     }
-                    off += info.size;
                 }
-
+                
+                
                 char chs[10];
                 method_getReturnType(m, chs, 10);
                 Variant r_ret;
@@ -661,33 +728,33 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
                     case 'I':
                     {
                         int_IMP imp = (int_IMP)method_getImplementation(m);
-                        r_ret = Variant(imp((id)native, selector, *(void**)mem));
+                        CallIMPRet(imp, native, selector);
                     }
                         break;
                     case 'B':
                     {
                         bool_IMP imp = (bool_IMP)method_getImplementation(m);
-                        r_ret = Variant(imp((id)native, selector, *(void**)mem));
+                        CallIMPRet(imp, native, selector);
                     }
                         break;
                     case 'f':
                     case 'F':
                     {
                         float_IMP imp = (float_IMP)method_getImplementation(m);
-                        r_ret = Variant(imp((id)native, selector, *(void**)mem));
+                        CallIMPRet(imp, native, selector);
                     }
                         break;
                     case 'v':
                     {
                         void_IMP imp = (void_IMP)method_getImplementation(m);
-                        imp((id)native, selector, *(void**)mem);
+                        CallIMP(imp, native, selector);
                         r_ret = Variant();
                     }
                         break;
                     case '@':
                     {
                         id_IMP imp = (id_IMP)method_getImplementation(m);
-                        id result = imp((id)native, selector, *(void**)mem);
+                        id result = CallIMPId(imp, native, selector);
                         if (!result)
                         {
                             r_ret = Variant();
@@ -703,7 +770,7 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
                     case '#':
                     {
                         class_IMP imp = (class_IMP)method_getImplementation(m);
-                        Class result = imp((id)native, selector, *(void**)mem);
+                        Class result = CallIMPId(imp, native, selector);
                         if (!result)
                         {
                             r_ret = Variant();
@@ -721,6 +788,8 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
                 free(mem);
                 return r_ret;
             }
+        }else {
+            continue;
         }
     }
     [pool release];
