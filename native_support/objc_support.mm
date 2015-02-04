@@ -28,46 +28,46 @@ typedef struct _info {
 NativeObject *_now_init = NULL;
 
 #define CallIMPId(_IMP, _OBJ, _SEL)\
-    {\
+    ({\
         id res = NULL;\
-        switch (n) {\
+        switch (p_argcount) {\
             case 1:\
-            res = _IMP((id)obj, sel, mem[0]);\
+            res = _IMP((id)_OBJ, _SEL, mem[0]);\
             break;\
             case 2:\
-            res = _IMP((id)obj, sel, mem[0], mem[1]);\
+            res = _IMP((id)_OBJ, _SEL, mem[0], mem[1]);\
             break;\
             case 3:\
-            res = _IMP((id)obj, sel, mem[0], mem[1], mem[2]);\
+            res = _IMP((id)_OBJ, _SEL, mem[0], mem[1], mem[2]);\
             break;\
             case 4:\
-            res = _IMP((id)obj, sel, mem[0], mem[1], mem[2], mem[3]);\
+            res = _IMP((id)_OBJ, _SEL, mem[0], mem[1], mem[2], mem[3]);\
             break;\
             case 5:\
-            res = _IMP((id)obj, sel, mem[0], mem[1], mem[2], mem[3], mem[4]);\
+            res = _IMP((id)_OBJ, _SEL, mem[0], mem[1], mem[2], mem[3], mem[4]);\
             break;\
             default:\
             break;\
         }\
         res;\
-    }
+    })
 #define CallIMP(_IMP, _OBJ, _SEL)\
     {\
-        switch (n) {\
+        switch (p_argcount) {\
             case 1:\
-            _IMP((id)obj, sel, mem[0]);\
+            _IMP((id)_OBJ, _SEL, mem[0]);\
             break;\
             case 2:\
-            _IMP((id)obj, sel, mem[0], mem[1]);\
+            _IMP((id)_OBJ, _SEL, mem[0], mem[1]);\
             break;\
             case 3:\
-            _IMP((id)obj, sel, mem[0], mem[1], mem[2]);\
+            _IMP((id)_OBJ, _SEL, mem[0], mem[1], mem[2]);\
             break;\
             case 4:\
-            _IMP((id)obj, sel, mem[0], mem[1], mem[2], mem[3]);\
+            _IMP((id)_OBJ, _SEL, mem[0], mem[1], mem[2], mem[3]);\
             break;\
             case 5:\
-            _IMP((id)obj, sel, mem[0], mem[1], mem[2], mem[3], mem[4]);\
+            _IMP((id)_OBJ, _SEL, mem[0], mem[1], mem[2], mem[3], mem[4]);\
             break;\
             default:\
             break;\
@@ -75,21 +75,21 @@ NativeObject *_now_init = NULL;
     }
 #define CallIMPRet(_IMP, _OBJ, _SEL)\
     {\
-        switch (n) {\
+        switch (p_argcount) {\
             case 1:\
-            r_ret = Variant(_IMP((id)obj, sel, mem[0]));\
+            r_ret = Variant(_IMP((id)_OBJ, _SEL, mem[0]));\
             break;\
             case 2:\
-            r_ret = Variant(_IMP((id)obj, sel, mem[0], mem[1]));\
+            r_ret = Variant(_IMP((id)_OBJ, _SEL, mem[0], mem[1]));\
             break;\
             case 3:\
-            r_ret = Variant(_IMP((id)obj, sel, mem[0], mem[1], mem[2]));\
+            r_ret = Variant(_IMP((id)_OBJ, _SEL, mem[0], mem[1], mem[2]));\
             break;\
             case 4:\
-            r_ret = Variant(_IMP((id)obj, sel, mem[0], mem[1], mem[2], mem[3]));\
+            r_ret = Variant(_IMP((id)_OBJ, _SEL, mem[0], mem[1], mem[2], mem[3]));\
             break;\
             case 5:\
-            r_ret = Variant(_IMP((id)obj, sel, mem[0], mem[1], mem[2], mem[3], mem[4]));\
+            r_ret = Variant(_IMP((id)_OBJ, _SEL, mem[0], mem[1], mem[2], mem[3], mem[4]));\
             break;\
             default:\
             break;\
@@ -663,7 +663,7 @@ Variant call_native_method(const void *native, bool is_static, const StringName&
                 {
                     continue;
                 }
-                void** mem = (void*)malloc(p_argcount*sizeof(void*));
+                void** mem = (void**)malloc(p_argcount*sizeof(void*));
                 for (int n = 0; n < p_argcount; n++) {
                     ArgInfomation info = arg_infos[n];
 
