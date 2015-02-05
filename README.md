@@ -6,12 +6,14 @@ Binding GDScript to native languages.
 For Java:
 
       var JClass = NF.find("com.android.godot.TestObj")
+      print(JClass.s_str()) #static method
       var test_obj = JClass.new(22)
       print(test_obj.a)
       
 For Object-C:
 
 	  var MyObject = NF.find("MyObject")
+	  print(MyObject.getOutput("hello")) #class method
 	  var test_obj = MyObject.new()
 	  obj.b = 998
 	  print(obj.b) # obj.b() for method.
