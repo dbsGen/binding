@@ -3,7 +3,7 @@
 #include "object_type_db.h"
 #include "core/globals.h"
 #include "native_class.h"
-#ifdef IPHONE_ENABLED
+#if defined(IPHONE_ENABLED) || defined(OSX_ENABLED)
 #include "objc/GOSupport.h"
 #endif
 
@@ -12,7 +12,7 @@ void register_native_support_types() {
     ObjectTypeDB::register_type<NativeFactory>();
     ObjectTypeDB::register_type<NativeClass>();
     ObjectTypeDB::register_type<NativeObject>();
-#ifdef IPHONE_ENABLED
+#if defined(IPHONE_ENABLED) || defined(OSX_ENABLED)
     register_TestObject();
 #endif
 }
