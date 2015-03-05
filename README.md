@@ -17,6 +17,7 @@ For Object-C:
 	  var test_obj = MyObject.new()
 	  obj.b = 998
 	  print(obj.b) # obj.b() for method.
+	  print(obj.print(1,2)) # => [obj print:1 add:2]   It will match the first word(part) and the arguments count with obj-c method.
 
 Signal in Java:
 
